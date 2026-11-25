@@ -1,0 +1,14 @@
+name = "neon-trade-1v1"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./public" # Optionnel si tu sers le HTML directement depuis worker.js (inclus ci-dessous)
+
+[[durable_objects.bindings]]
+name = "TRADE_ROOM"
+class_name = "TradeRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TradeRoom"]
