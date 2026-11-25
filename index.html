@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEON TRADE 1v1 — Duel Boursier RTS</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #070913;
+      --panel: #0e1326;
+      --border: #1e294b;
+      --cyan: #00f5d4;
+      --pink: #ff2a85;
+      --purple: #9b5de5;
+      --yellow: #fee440;
+      --green: #00ff88;
+      --red: #ff3b5c;
+      --text: #e2e8f0;
+      --muted: #7c8ba8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    /* LOBBY */
+    .overlay {
+      position: fixed; inset: 0; background: radial-gradient(circle at top, #131b3a 0%, #060811 85%);
+      display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+    }
+    .lobby-card {
+      background: var(--panel); border: 1px solid var(--cyan); box-shadow: 0 0 30px rgba(0,245,212,0.18);
+      border-radius: 16px; max-width: 520px; width: 100%; padding: 28px; text-align: center;
+    }
+    .logo { font-size: 2rem; font-weight: 900; letter-spacing: 2px; background: linear-gradient(90deg, var(--cyan), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin: 6px 0 22px; }
+
+    .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; text-align: left; }
+    label { font-size: 0.8rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 1px; }
+    input, select {
+      background: #080b18; border: 1px solid var(--border); color: #fff; padding: 12px 14px;
+      border-radius: 10px; font-size: 1rem; outline: none; width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--cyan); }
+
+    .btn {
+      cursor: pointer; border: none; border-radius: 10px; padding: 12px 18px; font-weight: 700;
+      font-size: 0.95rem; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .btn-cyan { background: var(--cyan); color: #050811; box-shadow: 0 0 15px rgba(0,245,212,0.4); }
+    .btn-cyan:hover { transform: translateY(-1px); filter: brightness(1.1); }
+    .btn-pink { background: var(--pink); color: #fff; box-shadow: 0 0 15px rgba(255,42,133,0.4); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    .row { display: flex; gap: 10px; }
+    .divider { margin: 18px 0; border-top: 1px solid var(--border); position: relative; }
+    .divider span { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 0 10px; color: var(--muted); font-size: 0.75rem; }
+
+    /* WAITING ROOM & QR */
+    #waitingBox { display: none; margin-top: 16px; padding: 16px; background: #080b18; border-radius: 12px; border: 1px dashed var(--cyan); }
+    .room-code-display { font-size: 2rem; font-weight: 900; color: var(--yellow); letter-spacing: 4px; margin: 8px 0; }
+    #qrcode { background: #fff; padding: 10px; border-radius: 10px; display: inline-block; margin: 10px 0; }
+
+    /* ARENA HUD */
+    #arena { display: none; max-width: 1320px; margin: 0 auto; padding: 14px; }
+    .duel-header {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px;
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; margin-bottom: 14px;
+    }
+    .player-box.right { text-align: right; }
+    .p-name { font-size: 0.85rem; color: var(--muted); }
+    .p-worth { font-size: 1.5rem; font-weight: 900; }
+    .p-worth.me { color: var(--cyan); }
+    .p-worth.opp { color: var(--pink); }
+    .timer-box { text-align: center; }
+    .timer { font-size: 1.8rem; font-weight: 900; color: var(--yellow); font-variant-numeric: tabular-nums; }
+    .day-badge { font-size: 0.75rem; color: var(--purple); font-weight: 700; }
+
+    .tug-bar { height: 8px; background: var(--pink); border-radius: 99px; overflow: hidden; margin-top: 8px; grid-column: 1 / -1; }
+    .tug-fill { height: 100%; background: var(--cyan); width: 50%; transition: width 0.4s ease; }
+
+    /* NEWS TICKER */
+    .news-banner {
+      background: linear-gradient(90deg, rgba(255,42,133,0.18), rgba(14,19,38,0.95));
+      border-left: 4px solid var(--pink); padding: 10px 14px; border-radius: 8px;
+      margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .news-text { font-weight: 700; font-size: 0.95rem; }
+
+    /* GRID */
+    .main-grid { display: grid; grid-template-columns: 300px 1fr 330px; gap: 14px; }
+    @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+    .card-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; display: flex; justify-content: space-between; }
+
+    .asset-item {
+      display: flex; justify-content: space-between; align-items: center; padding: 10px;
+      border-radius: 10px; border: 1px solid transparent; cursor: pointer; margin-bottom: 6px; background: #090d1c;
+    }
+    .asset-item:hover { border-color: var(--border); }
+    .asset-item.active { border-color: var(--cyan); background: rgba(0,245,212,0.07); }
+    .cat-tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: #1a223f; color: var(--cyan); }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+
+    canvas { width: 100%; height: 240px; background: #070a16; border-radius: 10px; border: 1px solid var(--border); }
+
+    .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0; }
+    .chip { background: #131a33; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+    .chip:hover { border-color: var(--cyan); }
+
+    .pos-card { background: #080c1a; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- LOBBY DE CONNEXION 1v1 -->
+  <div id="lobbyOverlay" class="overlay">
+    <div class="lobby-card">
+      <div class="logo">NEON TRADE 1v1</div>
+      <div class="subtitle">Duel Boursier Temps Réel • Synchronisé Cloudflare Edge</div>
+
+      <div class="input-group">
+        <label>Ton Pseudo de Trader</label>
+        <input id="playerNameInput" type="text" placeholder="Ex: CryptoWolf" maxlength="14" />
+      </div>
+
+      <div id="setupControls">
+        <div class="input-group">
+          <label>Durée du Duel</label>
+          <select id="durationSelect">
+            <option value="120">2 Minutes (Blitz)</option>
+            <option value="180" selected>3 Minutes (Standard)</option>
+            <option value="300">5 Minutes (Stratégie)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-cyan" style="width:100%" onclick="createRoom()">⚡ Créer un Salon 1v1 (QR / Code)</button>
+
+        <div class="divider"><span>OU REJOINDRE UN AMI</span></div>
+
+        <div class="row">
+          <input id="joinCodeInput" type="text" placeholder="CODE (ex: A7K9P)" maxlength="6" style="text-transform:uppercase; text-align:center; font-weight:800; letter-spacing:2px;" />
+          <button class="btn btn-pink" onclick="joinRoom()">Rejoindre</button>
+        </div>
+      </div>
+
+      <!-- ÉCRAN D'ATTENTE + QR CODE -->
+      <div id="waitingBox">
+        <div style="font-size:0.85rem; color:var(--cyan);">Partage ce code ou fais scanner le QR Code :</div>
+        <div id="roomCodeText" class="room-code-display">-----</div>
+        <div id="qrcode"></div>
+        <div style="margin-top:8px;">
+          <button class="btn btn-outline" style="font-size:0.75rem; padding:6px 12px;" onclick="copyInviteLink()">📋 Copier le lien direct</button>
+        </div>
+        <div style="margin-top:12px; font-size:0.85rem; color:var(--yellow);">⏳ En attente de l'adversaire (1/2)...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉCRAN DE FIN DE MATCH -->
+  <div id="endOverlay" class="overlay hidden">
+    <div class="lobby-card">
+      <div id="endTitle" class="logo">VICTOIRE !</div>
+      <div id="endSubtitle" class="subtitle">Temps écoulé</div>
+      <div id="endStats" style="margin: 18px 0; text-align:left; background:#080b18; padding:14px; border-radius:10px; line-height:1.8;"></div>
+      <button class="btn btn-cyan" style="width:100%" onclick="location.href = location.pathname">🔄 Nouveau Duel</button>
+    </div>
+  </div>
+
+  <!-- ARÈNE DE JEU SYNCHRONISÉE -->
+  <div id="arena">
+    <div class="duel-header">
+      <div class="player-box">
+        <div class="p-name" id="meName">Moi</div>
+        <div class="p-worth me" id="meWorth">0.00 €</div>
+        <div style="font-size:0.8rem; color:var(--muted);">Cash dispo: <strong id="meCash" style="color:#fff">0 €</strong></div>
+      </div>
+
+      <div class="timer-box">
+        <div class="day-badge" id="dayBadge">JOUR 1 • SALON #----</div>
+        <div class="timer" id="timerDisplay">03:00</div>
+      </div>
+
+      <div class="player-box right">
+        <div class="p-name" id="oppName">Adversaire</div>
+        <div class="p-worth opp" id="oppWorth">0.00 €</div>
+        <div style="font-size:0.8rem; color:var(--muted);" id="oppDiff">Égalité</div>
+      </div>
+
+      <div class="tug-bar"><div id="tugFill" class="tug-fill"></div></div>
+    </div>
+
+    <div class="news-banner">
+      <div class="news-text" id="latestNews">📡 Connexion au flux mondial établie. Surveillez les annonces !</div>
+      <button class="btn btn-outline" id="freelanceBtn" style="font-size:0.75rem; padding:7px 10px; white-space:nowrap;" onclick="doFreelance()">💼 Petit Boulot (+50€)</button>
+    </div>
+
+    <div class="main-grid">
+      <!-- LISTE DES ACTIFS -->
+      <div class="card">
+        <div class="card-title"><span>Marchés en Direct</span><span>Var.</span></div>
+        <div id="assetList"></div>
+      </div>
+
+      <!-- GRAPHIQUE & ORDRES -->
+      <div class="card">
+        <div class="card-title">
+          <span id="selectedAssetTitle">NVIDIA Corp (NVDA)</span>
+          <span id="selectedAssetPrice" style="color:var(--cyan); font-weight:800;">135.00 €</span>
+        </div>
+        <canvas id="priceChart" width="600" height="240"></canvas>
+
+        <div style="margin-top:14px;">
+          <div class="row">
+            <div style="flex:1">
+              <label>Montant (€)</label>
+              <input id="tradeAmount" type="number" min="10" step="10" value="50" />
+            </div>
+            <div style="width:120px">
+              <label>Levier</label>
+              <select id="tradeLeverage">
+                <option value="1">x1 (Sûr)</option>
+                <option value="2">x2 (Risqué)</option>
+                <option value="5">x5 (Extrême)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="quick-amounts">
+            <button class="chip" onclick="setAmount(25)">25 €</button>
+            <button class="chip" onclick="setAmount(50)">50 €</button>
+            <button class="chip" onclick="setHalf()">50%</button>
+            <button class="chip" onclick="setMax()">MAX</button>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <button class="btn btn-cyan" style="flex:1" onclick="sendOrder(false)">📈 Acheter (Long)</button>
+            <button class="btn btn-pink" style="flex:1" onclick="sendOrder(true)">📉 Parier Baisse (Short)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PORTEFEUILLE ACTIF -->
+      <div class="card">
+        <div class="card-title"><span>Mes Positions</span><span id="posCount">0</span></div>
+        <div id="positionsList">
+          <div style="color:var(--muted); font-size:0.85rem;">Aucune position ouverte.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let myId = null;
+    let roomCode = '';
+    let gameState = null;
+    let selectedAssetId = 'NVDA';
+
+    // Détection automatique ?room=XXXXX depuis un scan QR Code
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(location.search);
+      const urlRoom = params.get('room');
+      if (urlRoom) {
+        document.getElementById('joinCodeInput').value = urlRoom.toUpperCase();
+      }
+      document.getElementById('playerNameInput').value = 'Trader_' + Math.floor(100 + Math.random() * 899);
+    });
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    function createRoom() {
+      roomCode = generateRoomCode();
+      const duration = document.getElementById('durationSelect').value;
+      document.getElementById('setupControls').classList.add('hidden');
+      document.getElementById('waitingBox').style.display = 'block';
+      document.getElementById('roomCodeText').textContent = roomCode;
+
+      const inviteUrl = `${location.origin}${location.pathname}?room=${roomCode}`;
+      const qrContainer = document.getElementById('qrcode');
+      qrContainer.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(qrContainer, { text: inviteUrl, width: 150, height: 150 });
+      }
+      connectWS(roomCode, duration);
+    }
+
+    function joinRoom() {
+      const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+      if (code.length < 4) return alert('Entre un code de salon valide.');
+      roomCode = code;
+      connectWS(roomCode, 180);
+    }
+
+    function copyInviteLink() {
+      const inviteUrl = `${location.origin}${location.pathname}?room=${roomCode}`;
+      navigator.clipboard.writeText(inviteUrl);
+      alert('Lien d\'invitation copié ! Envoie-le à ton adversaire.');
+    }
+
+    function connectWS(code, duration) {
+      const name = encodeURIComponent(document.getElementById('playerNameInput').value.trim() || 'Trader');
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}/ws/${code}?name=${name}&duration=${duration}`);
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'WELCOME') {
+          myId = msg.playerId;
+          gameState = msg.state;
+        }
+        if (msg.type === 'MATCH_START') {
+          gameState = msg.state;
+          document.getElementById('lobbyOverlay').classList.add('hidden');
+          document.getElementById('arena').style.display = 'block';
+          renderAll();
+        }
+        if (msg.type === 'TICK' || msg.type === 'STATE') {
+          gameState = msg.state;
+          if (gameState.status === 'PLAYING') {
+            document.getElementById('lobbyOverlay').classList.add('hidden');
+            document.getElementById('arena').style.display = 'block';
+            renderAll();
+          }
+        }
+        if (msg.type === 'NEWS') {
+          document.getElementById('latestNews').textContent = msg.news.text;
+        }
+        if (msg.type === 'MATCH_END') {
+          gameState = msg.state;
+          showEndScreen();
+        }
+      };
+
+      ws.onerror = () => alert('Impossible de rejoindre ce salon (plein ou inexistant).');
+    }
+
+    function renderAll() {
+      if (!gameState || !myId) return;
+      const players = Object.values(gameState.players);
+      const me = gameState.players[myId];
+      const opp = players.find(p => p.id !== myId) || { name: 'Adversaire', netWorth: gameState.startCash };
+
+      if (!me) return;
+
+      // HUD Duel
+      document.getElementById('meName').textContent = `${me.name} (Toi)`;
+      document.getElementById('meWorth').textContent = `${me.netWorth.toFixed(2)} €`;
+      document.getElementById('meCash').textContent = `${me.cash.toFixed(2)} €`;
+
+      document.getElementById('oppName').textContent = opp.name;
+      document.getElementById('oppWorth').textContent = `${opp.netWorth.toFixed(2)} €`;
+
+      const diff = me.netWorth - opp.netWorth;
+      const diffEl = document.getElementById('oppDiff');
+      if (Math.abs(diff) < 0.5) {
+        diffEl.textContent = 'Égalité parfaite';
+        diffEl.style.color = 'var(--muted)';
+      } else if (diff > 0) {
+        diffEl.textContent = `Tu mènes de +${diff.toFixed(2)} €`;
+        diffEl.style.color = 'var(--green)';
+      } else {
+        diffEl.textContent = `Retard de ${diff.toFixed(2)} €`;
+        diffEl.style.color = 'var(--red)';
+      }
+
+      const total = me.netWorth + opp.netWorth;
+      const ratio = total > 0 ? Math.min(90, Math.max(10, (me.netWorth / total) * 100)) : 50;
+      document.getElementById('tugFill').style.width = ratio + '%';
+
+      // Chrono
+      const mins = String(Math.floor(gameState.timeLeft / 60)).padStart(2, '0');
+      const secs = String(gameState.timeLeft % 60).padStart(2, '0');
+      document.getElementById('timerDisplay').textContent = `${mins}:${secs}`;
+      document.getElementById('dayBadge').textContent = `JOUR ${gameState.day} • SALON #${roomCode}`;
+
+      // Liste des actifs
+      const listEl = document.getElementById('assetList');
+      listEl.innerHTML = '';
+      for (const a of gameState.assets) {
+        const div = document.createElement('div');
+        div.className = 'asset-item' + (a.id === selectedAssetId ? ' active' : '');
+        div.onclick = () => { selectedAssetId = a.id; renderAll(); };
+        const cls = a.changePct >= 0 ? 'up' : 'down';
+        const sign = a.changePct >= 0 ? '+' : '';
+        div.innerHTML = `
+          <div>
+            <div style="font-weight:700;">${a.name} <span class="cat-tag">${a.cat}</span></div>
+            <div style="font-size:0.75rem; color:var(--muted);">Rendement/j: ${(a.yieldRate * 100).toFixed(1)}%</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;">${a.price.toFixed(2)} €</div>
+            <div class="${cls}" style="font-size:0.8rem;">${sign}${a.changePct}%</div>
+          </div>
+        `;
+        listEl.appendChild(div);
+      }
+
+      // Graphique actif sélectionné
+      const selected = gameState.assets.find(a => a.id === selectedAssetId) || gameState.assets[0];
+      document.getElementById('selectedAssetTitle').textContent = `${selected.name} (${selected.id})`;
+      document.getElementById('selectedAssetPrice').textContent = `${selected.price.toFixed(2)} €`;
+      drawChart(selected);
+
+      // Positions ouvertes
+      const posEntries = Object.entries(me.positions);
+      document.getElementById('posCount').textContent = posEntries.length;
+      const posList = document.getElementById('positionsList');
+      if (posEntries.length === 0) {
+        posList.innerHTML = '<div style="color:var(--muted); font-size:0.85rem;">Aucune position ouverte.</div>';
+      } else {
+        posList.innerHTML = '';
+        for (const [aid, pos] of posEntries) {
+          const asset = gameState.assets.find(a => a.id === aid);
+          const pnl = pos.isShort
+            ? (pos.avgPrice - asset.price) * pos.qty * pos.leverage
+            : (asset.price - pos.avgPrice) * pos.qty * pos.leverage;
+          const cls = pnl >= 0 ? 'up' : 'down';
+          const card = document.createElement('div');
+          card.className = 'pos-card';
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-weight:700;">
+              <span>${asset.name} (${pos.isShort ? 'SHORT' : 'LONG'} x${pos.leverage})</span>
+              <span class="${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} €</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--muted); margin:4px 0 8px;">
+              Mise: ${pos.margin.toFixed(2)} € • Entrée: ${pos.avgPrice.toFixed(2)} €
+            </div>
+            <button class="btn btn-outline" style="width:100%; padding:6px; font-size:0.8rem;" onclick="closeOrder('${aid}')">Encaisser / Fermer</button>
+          `;
+          posList.appendChild(card);
+        }
+      }
+    }
+
+    function drawChart(asset) {
+      const canvas = document.getElementById('priceChart');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const data = asset.history;
+      if (!data || data.length < 2) return;
+
+      const min = Math.min(...data) * 0.995;
+      const max = Math.max(...data) * 1.005;
+      const range = max - min || 1;
+
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+
+      data.forEach((val, idx) => {
+        const x = (idx / (data.length - 1)) * (w - 20) + 10;
+        const y = h - 15 - ((val - min) / range) * (h - 30);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function setAmount(v) { document.getElementById('tradeAmount').value = v; }
+    function setHalf() {
+      const me = gameState?.players[myId];
+      if (me) document.getElementById('tradeAmount').value = Math.max(10, Math.floor(me.cash / 2));
+    }
+    function setMax() {
+      const me = gameState?.players[myId];
+      if (me) document.getElementById('tradeAmount').value = Math.floor(me.cash);
+    }
+
+    function sendOrder(isShort) {
+      const amount = Number(document.getElementById('tradeAmount').value);
+      const leverage = Number(document.getElementById('tradeLeverage').value);
+      ws?.send(JSON.stringify({ type: 'OPEN_POS', assetId: selectedAssetId, amount, leverage, isShort }));
+    }
+
+    function closeOrder(assetId) {
+      ws?.send(JSON.stringify({ type: 'CLOSE_POS', assetId }));
+    }
+
+    function doFreelance() {
+      ws?.send(JSON.stringify({ type: 'FREELANCE' }));
+      const btn = document.getElementById('freelanceBtn');
+      btn.disabled = true;
+      setTimeout(() => { btn.disabled = false; }, 15000);
+    }
+
+    function showEndScreen() {
+      document.getElementById('arena').style.display = 'none';
+      document.getElementById('endOverlay').classList.remove('hidden');
+
+      const players = Object.values(gameState.players);
+      const me = gameState.players[myId];
+      const opp = players.find(p => p.id !== myId) || { name: 'Adversaire', netWorth: 0 };
+
+      const won = me.netWorth >= opp.netWorth;
+      document.getElementById('endTitle').textContent = won ? '🏆 VICTOIRE !' : '💀 DÉFAITE';
+      document.getElementById('endStats').innerHTML = `
+        <div><strong>Capital de départ :</strong> ${gameState.startCash} € chacun</div>
+        <div style="color:var(--cyan)"><strong>${me.name} (Toi) :</strong> ${me.netWorth.toFixed(2)} € (${me.tradesCount} ordres)</div>
+        <div style="color:var(--pink)"><strong>${opp.name} :</strong> ${opp.netWorth.toFixed(2)} € (${opp.tradesCount} ordres)</div>
+      `;
+    }
+  </script>
+</body>
+</html>
